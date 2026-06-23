@@ -19,13 +19,15 @@ runners and produces an **unsigned `.ipa`**, which you then re-sign on your PC a
    Tip: a **public** repo gets free Actions minutes. A private repo works too but macOS runners
    bill at 10x, so you'd burn through the free 2,000 min/month quickly.
 
-2. **Add your Unity license as repo secrets** (Settings → Secrets and variables → Actions → New
-   repository secret). GameCI needs a free Unity **Personal** license:
-   - `UNITY_EMAIL` – your Unity account email
-   - `UNITY_PASSWORD` – your Unity account password
-   - `UNITY_LICENSE` – the contents of your `.ulf` license file. To get it, follow
-     <https://game.ci/docs/github/activation> (run the activation workflow → download the `.alf`
-     → upload it at <https://license.unity3d.com/manual> → paste the returned `.ulf` text here).
+2. **Add your Unity license as a repo secret** (Settings → Secrets and variables → Actions). GameCI
+   needs a free Unity **Personal** license:
+   - `UNITY_LICENSE` – the full contents of your local `.ulf` file. On Windows it lives at
+     `C:\ProgramData\Unity\Unity_lic.ulf` (created when you activate a free Personal license in
+     Unity Hub → Preferences → Licenses → Add). Copy/paste the whole file into the secret.
+   - `UNITY_EMAIL` / `UNITY_PASSWORD` – your Unity account email/password. Usually optional for a
+     Personal `.ulf`; add them only if a build fails complaining about activation.
+
+   See <https://game.ci/docs/github/activation> for details.
 
 ### Each build
 
