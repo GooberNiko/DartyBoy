@@ -1,0 +1,97 @@
+name: Build iOS IPA (unsigned)
+
+# Run manually from the Actions tab, or on every push to main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  # 1) Unity generates the Xcode project (runs on cheap Linux runners via GameCI Docker).
+  unity-export:
+    name: Unity → Xcode project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-iOS-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-iOS-
+            Library-
+
+      - name: Build iOS Xcode project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: iOS
+          # projectPath defaults to the repo root, which IS the Unity project here.
+          # unityVersion is auto-detected from ProjectSettings/ProjectVersion.txt (6000.4.5f1).
+          allowDirtyBuild: true
+
+      - name: Upload Xcode project artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-project
+          path: build/iOS
+          retention-days: 1
+
+  # 2) Compile the Xcode project into an UNSIGNED .ipa on a macOS runner.
+  build-ipa:
+    name: Xcode → unsigned IPA
+    needs: unity-export
+    runs-on: macos-14
+    steps:
+      - name: Download Xcode project
+        uses: actions/download-artifact@v4
+        with:
+          name: xcode-project
+          path: xcode
+
+      - name: Build unsigned .app
+        run: |
+          set -e
+          PROJ=$(find xcode -maxdepth 3 -name "Unity-iPhone.xcodeproj" | head -1)
+          if [ -z "$PROJ" ]; then echo "Could not find Unity-iPhone.xcodeproj"; find xcode -maxdepth 3 -type d; exit 1; fi
+          PROJ_DIR=$(dirname "$PROJ")
+          echo "Building $PROJ"
+          xcodebuild \
+            -project "$PROJ" \
+            -scheme Unity-iPhone \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$PROJ_DIR/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE="" \
+            build
+
+      - name: Package into .ipa
+        run: |
+          set -e
+          APP=$(find xcode -path "*Release-iphoneos/*.app" -maxdepth 6 | head -1)
+          if [ -z "$APP" ]; then echo "Could not find built .app"; find xcode -name "*.app" -maxdepth 8; exit 1; fi
+          echo "Packaging $APP"
+          WORK=$(mktemp -d)
+          mkdir -p "$WORK/Payload"
+          cp -R "$APP" "$WORK/Payload/"
+          mkdir -p out
+          (cd "$WORK" && zip -qry ipa.zip Payload)
+          mv "$WORK/ipa.zip" out/DartyBoy-unsigned.ipa
+          ls -lh out
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DartyBoy-ipa
+          path: out/DartyBoy-unsigned.ipa
+          retention-days: 7
