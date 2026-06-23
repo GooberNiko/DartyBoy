@@ -24,8 +24,8 @@ runners and produces an **unsigned `.ipa`**, which you then re-sign on your PC a
    - `UNITY_LICENSE` – the full contents of your local `.ulf` file. On Windows it lives at
      `C:\ProgramData\Unity\Unity_lic.ulf` (created when you activate a free Personal license in
      Unity Hub → Preferences → Licenses → Add). Copy/paste the whole file into the secret.
-   - `UNITY_EMAIL` / `UNITY_PASSWORD` – your Unity account email/password. Usually optional for a
-     Personal `.ulf`; add them only if a build fails complaining about activation.
+   - `UNITY_EMAIL` / `UNITY_PASSWORD` – your Unity account email/password. **Required** — GameCI v4
+     needs all three (`UNITY_LICENSE` + `UNITY_EMAIL` + `UNITY_PASSWORD`) to activate a Personal license.
 
    See <https://game.ci/docs/github/activation> for details.
 
