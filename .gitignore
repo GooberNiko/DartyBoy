@@ -47,6 +47,10 @@ ExportedObj/
 sysinfo.txt
 crashlytics-build.properties
 
+# iOS Xcode export (too big for git — shipped to CI as a release asset instead)
+/ios-xcode/
+*.tar.gz
+
 # OS
 .DS_Store
 Thumbs.db
