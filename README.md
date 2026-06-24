@@ -4,42 +4,45 @@ A 2D iOS game (Unity 6000.4.5f1, URP) — a mix of Flappy Bird and the Geometry 
 
 ## Building an iOS IPA without a Mac
 
-Unity only *exports* an Xcode project; turning that into an `.ipa` needs macOS + Xcode. We let
-**Unity run locally on your PC** (where your license already works) to produce the Xcode project,
-then **GitHub Actions' macOS runner** compiles it into an **unsigned `.ipa`**. You re-sign that IPA
-at install time with **Sideloadly** (or AltStore) using a free Apple ID — no Apple Developer
-membership, and no Unity login in the cloud (which is what broke the old GameCI approach).
+Unity only *exports* an Xcode project; turning that into an `.ipa` needs macOS + Xcode. So:
+**Unity runs locally on your PC** (where your license already works) to produce the Xcode project →
+the project is uploaded as a **GitHub Release asset** (it's ~1 GB, far too big for git — the
+`UnityRuntime` binary alone is >100 MB) → a **GitHub Actions macOS runner** compiles it into an
+**unsigned `.ipa`** → you re-sign it at install time with **Sideloadly** using a free Apple ID.
 
-### Each build
+No Unity login is needed in the cloud (that's what broke the GameCI approach), and no Apple
+Developer membership is needed.
 
-1. **Export the Xcode project from Unity (on your PC):**
-   - Make sure the **iOS Build Support** module is installed (Unity Hub → your editor → Add modules).
-   - In Unity: **File → Build Profiles** (or Build Settings) → select **iOS** → **Switch Platform** →
-     **Build**, and choose the output folder **`ios-xcode`** inside this project
-     (`...\UNTY TEST\Lilgame\ios-xcode`). Let it finish (it runs IL2CPP — a few minutes).
+### Each build (repo: `GooberNiko/DartyBoy`, release tag `ios-xcode-latest`)
 
-2. **Commit & push the export:**
+1. **Export from Unity (your PC):** File → Build Profiles → **iOS** → **Build** → output folder
+   `Lilgame\ios-xcode`. (IL2CPP, a few minutes. Needs the iOS Build Support module installed.)
+
+2. **Tarball + upload as the release asset** (from the repo's parent folder):
    ```bash
-   git add ios-xcode
-   git commit -m "iOS Xcode export"
-   git push
+   tar -czf ios-xcode.tar.gz -C Lilgame ios-xcode
+   gh release upload ios-xcode-latest ios-xcode.tar.gz --clobber -R GooberNiko/DartyBoy
    ```
-   The push automatically triggers the **Build iOS IPA (unsigned)** workflow.
+   (First time only: `gh release create ios-xcode-latest ios-xcode.tar.gz -R GooberNiko/DartyBoy -t "iOS Xcode export"`.)
 
-3. **Download the IPA:** repo → **Actions** → latest run → download the **`DartyBoy-ipa`** artifact →
-   unzip → `DartyBoy-unsigned.ipa`.
+3. **Run the build:**
+   ```bash
+   gh workflow run ios-build.yml -R GooberNiko/DartyBoy -f release_tag=ios-xcode-latest
+   ```
+   (Or Actions tab → Build iOS IPA (unsigned) → Run workflow.) Takes ~7–8 min.
+
+4. **Download the IPA:** Actions → latest run → **`DartyBoy-ipa`** artifact → unzip →
+   `DartyBoy-unsigned.ipa`. Or: `gh run download <run-id> -R GooberNiko/DartyBoy -n DartyBoy-ipa`.
 
 ### Install on your iPhone (Windows, no Mac)
 
-4. Use **[Sideloadly](https://sideloadly.io/)** (or AltStore):
-   - Plug in your iPhone, open Sideloadly, drag in `DartyBoy-unsigned.ipa`.
-   - Enter your Apple ID; it re-signs and installs.
-   - On the phone: Settings → General → VPN & Device Management → trust your Apple ID.
-   - Free-Apple-ID apps expire after **7 days** (just re-install to renew); max 3 sideloaded apps.
+5. **[Sideloadly](https://sideloadly.io/)** (or AltStore): plug in your iPhone, drag in
+   `DartyBoy-unsigned.ipa`, enter your Apple ID → it re-signs and installs. On the phone:
+   Settings → General → VPN & Device Management → trust your Apple ID.
+   Free-Apple-ID apps expire after **7 days** (re-install to renew); max 3 sideloaded apps.
 
 ### Notes
-- The committed `ios-xcode/` folder is large (it includes IL2CPP-generated C++). That's expected; it
-  gets overwritten each export. Keeping the repo **public** keeps Actions minutes free.
-- **Proper signing (optional):** with an Apple Developer account you can switch the macOS job from
-  `CODE_SIGNING_ALLOWED=NO` to a real `xcodebuild -exportArchive` using your certificate +
-  provisioning profile (stored as secrets) to get a directly-installable signed IPA.
+- `ios-xcode/` and `*.tar.gz` are git-ignored on purpose; the export ships via the release asset.
+- **Proper signing (optional):** with an Apple Developer account, switch the macOS job from
+  `CODE_SIGNING_ALLOWED=NO` to a real `xcodebuild -exportArchive` (certificate + provisioning
+  profile as secrets) to get a directly-installable signed IPA.
